@@ -20,19 +20,26 @@ int main() {
 
     Mat labels = segmentator.segmentate();
 
+    std::cout << "Printing here: " << segmentator.regions.size() << std::endl;
+    print_graph(segmentator.region_parents);
+
+    std::cout << "Region values: " << std::endl;
+    for (Segmentator::Node_t node : segmentator.regions) {
+        std::cout << node.region_value << std::endl;
+    }
+
+    std::cout << "Parents values: " << std::endl;
+    for (Segmentator::Node_t node : segmentator.region_parents) {
+        std::cout << node.region_value << std::endl;
+    }
+
+
+
     // Affichage de l'image originale et de l'image segmentée
     imshow("Original image", image);
-    imshow("Segmented image", labels); // On multiplie les labels par 25 pour mieux les distinguer
+    imshow("Segmented image", labels);
+    imshow("Boundary", segmentator.boundary);
     waitKey(0);
     
-    /*Vec3b p;
-    for (int j=0; j < image.size[0]; j += 300) {
-        for (int i=0; i < image.size[1]; i += 300) {
-            p = image.at<Vec3b>(Point(i,j));
-            std::cout << '(' << int(p[0]) << ',' << int(p[1]) << ',' << int(p[2]) << ") ";
-        }
-        std::cout << std::endl;
-    }*/
-
     return 0;
 }
