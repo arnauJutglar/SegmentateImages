@@ -21,6 +21,34 @@ Segmentator::Segmentator(Mat& image_) : image(image_) {
     unmerged_labels =  Mat::zeros(image_.size(), CV_8UC3);
 }
 
+int Segmentator::setNumSeeds(int _numSeeds) {
+    if (_numSeeds < image.cols*image.rows) {
+        numSeeds = _numSeeds;
+        return 0;
+    }
+    return 1;
+}
+
+int Segmentator::setMinDist(int _minDist) {
+    if (_minDist < image.cols && _minDist < image.rows) {
+        minDist = _minDist;
+        return 0;
+    }
+    return 1;
+}
+
+int Segmentator::setThreshold(float _threshold) {
+    if (0 <= _threshold && _threshold <= 255) {
+        threshold = _threshold;
+        return 0;
+    }
+    return 1;
+}
+
+void Segmentator::setSimilarityFunction(function<bool(Vec3d,Vec3d)> f) {
+    similarityFunction = f;
+}
+
 
 // Fonction utilisée pour tester si un pixel est affecté ou pas.
 bool operator==(Vec3b c, int i) {
@@ -36,14 +64,8 @@ Vec3b Segmentator::randomColor() {
     return color;
 }
 
-// Fonction qui renvoie vrai si deux couleurs sont similaires selon un seuil
-bool Segmentator::similar(Vec3d c1, Vec3d c2, int threshold) {
-    return similarityFunction(c1, c2);
-}
-
 // Fonction qui réalise la croissance de région à partir d'un germe
 void Segmentator::regionGrowing(Point seed) {
-    std::cout << "regionGrowing" << std::endl;
     // Initialisation de la file FIFO
     queue<Point> fifo;
     fifo.push(seed);
@@ -56,11 +78,15 @@ void Segmentator::regionGrowing(Point seed) {
     node.parent = NULL;
     node.members.push_back(seed);
 
+    short neighbors;
+
     // Tant que la file n'est pas vide
     while (!fifo.empty()) {
         // On défile le premier point de la file
         Point p = fifo.front();
         fifo.pop();
+
+        neighbors = 0;
 
         // On parcourt les 8 voisins du point
         for (int i = -1; i <= 1; i++) {
@@ -74,13 +100,11 @@ void Segmentator::regionGrowing(Point seed) {
                     // On vérifie que le voisin n'a pas déjà été affecté à une région
                     if (unmerged_labels.at<Vec3b>(q) == 0) {
                         // On vérifie que le voisin est similaire au pixel courant
-                        if (similar(node.region_value, neighbor, threshold)) {
+                        if (similarityFunction(node.region_value, neighbor)) {
+                            neighbors++;
                             // On affecte le voisin à la même région que le pixel courant
                             unmerged_labels.at<Vec3b>(q) = node.label_color;
                             node.members.push_back(q);
-                            if (node.members.size() > node.members.max_size() - 100) {
-                                std::cout << "Exceeded size." << std::endl;
-                            }
                             
                             // On ajoute le voisin à la file
                             fifo.push(q);
@@ -96,10 +120,16 @@ void Segmentator::regionGrowing(Point seed) {
                             node.size++;
                         }
                     } else {
+                        if (unmerged_labels.at<Vec3b>(q) == node.label_color) {
+                            neighbors++;
+                        }
                         node.adjacents.insert(labels.at<Vec3b>(q));
                     }
                 }
             }
+        }
+        if (neighbors != 9) {
+            node.boundary.push_back(Point(p));
         }
     }
 
@@ -107,17 +137,27 @@ void Segmentator::regionGrowing(Point seed) {
     mutex_object.lock();
     region_parents.push_back(node);
     regions.push_back(node);
-    std::cout << "regions size = " << regions.size() << std::endl;
     mutex_object.unlock();
-    std::cout << node.adjacents.size() << std::endl;
 }
 
 void Segmentator::computeBoundary(Node_t& region) {
-    std::cout << "computeBoundary()" << std::endl;
-    // Get a point from the region.
-    Point p = region.members.back();
+    computeBoundary(region, region);
 
-    while (not isBoundary(region, p)) {
+    return;
+}
+
+void Segmentator::computeBoundary(Node_t& child, Node_t& parent) {
+    if (child.children.size() != 0) {
+        for (Node_t* new_child : child.children) {
+            computeBoundary(*new_child, parent);
+        }
+        return;
+    }
+
+    // Get a point from the region.    
+    Point p = child.members.back();
+
+    while (not isBoundary(child, p)) {
         p = Point(p.x + 1, p.y);
     }
 
@@ -127,18 +167,19 @@ void Segmentator::computeBoundary(Node_t& region) {
     while (not pending.empty()) {
         Point q = pending.back();
         pending.pop_back();
-        region.boundary.push_back(q);
+        parent.boundary.push_back(q);
 
         for (int j = -1; j <= 1; j++) {
             for (int i = -1; i <= 1; i++) {
                 if (j != 0 || i != 0) {
                     Point qq(q.x + j, q.y + i);
                     if (insideImage(qq)) {
-                        if (isBoundary(region, qq)) {
-                            if (find(region.boundary.begin(), region.boundary.end(), qq) == region.boundary.end()) {
-                                region.boundary.push_back(qq);
-                                if (similar(region.region_value, image.at<Vec3b>(qq), threshold)) {
+                        if (isBoundary(parent, qq)) {
+                            if (find(parent.boundary.begin(), parent.boundary.end(), qq) == parent.boundary.end()) {
+                                if (labels.at<Vec3b>(qq) == parent.label_color) {
                                     pending.push_back(qq);
+                                    parent.boundary.push_back(qq);
+                                    boundary.at<Vec3b>(qq) = parent.label_color;
                                 }
                             }
                         }
@@ -147,13 +188,13 @@ void Segmentator::computeBoundary(Node_t& region) {
             }
         }
     }
-
+    
     return;
 }
 
+
 // Fonction qui vérifie si deux régions sont adjacentes
 bool Segmentator::areAdjacent(Node_t region1, Node_t region2) {
-    std::cout << "areAdjacent()" << std::endl;
 
     for (Vec3b label : region1.adjacents) {
         if (find(region2.adjacents.begin(), region2.adjacents.end(), label) != region2.adjacents.end()) {
@@ -172,14 +213,7 @@ bool Segmentator::areAdjacent(Node_t region1, Node_t region2) {
 }
 
 bool Segmentator::areSimilar(Node_t region1, Node_t region2) {
-    std::cout << "areSimilar()" << std::endl;
-    bool b = similar(region1.region_value, region2.region_value, 2*threshold);
-
-    if (!b) {
-        std::cout << region1.region_value << " and " << region2.region_value << " were considered different." << std::endl;
-    } else {
-        std::cout << region1.region_value << " and " << region2.region_value << " were considered equal." << std::endl;
-    }
+    bool b = similarityFunction(region1.region_value, region2.region_value);
 
     return b;
 }
@@ -193,7 +227,10 @@ bool Segmentator::isBoundary(const Node_t& region, Point p) {
                 // Check if inside the image:
                 if (insideImage(q)) {
                     // Check if it is from another region:
-                    if (not similar(image.at<Vec3b>(q), region.region_value, threshold)) {
+                    /*if (not similar(image.at<Vec3b>(q), region.region_value, threshold)) {
+                        return true;
+                    }*/
+                    if (labels.at<Vec3b>(q) != region.label_color) {
                         return true;
                     }
                 } else {
@@ -214,39 +251,30 @@ bool Segmentator::insideImage(Point p) {
 
 // Fonction qui fusionne deux régions adjacentes selon un critère de distance
 void Segmentator::regionMerging(Mat& image, Mat& labels, int minDist) {
-    std::cout << "regionMerging()" << std::endl;
-
     int iter=0;
 
     list<Node_t*> remaining;
     for (Node_t& node : regions) {
         remaining.push_back(&node);
-        std::cout << "adress = " << &node << std::endl;
     }
     while (remaining.size() > 1) {
-        std::cout << remaining.size() << std::endl;
         Node_t* node1 = remaining.back();
         remaining.remove(node1);
-        std::cout << remaining.size() << std::endl;
         list<Node_t*> aux_remaining(remaining);
 
         for (Node_t* node2 : aux_remaining) {
-            std::cout << "iter = " << ++iter << std::endl;
             if (areSimilar(*node1, *node2) && areAdjacent(*node1, *node2)) {
                 Node_t* parent = mergeRegions(node1, node2);
                 remaining.remove(node2);
                 remaining.push_back(parent);
-                std::cout << "a removal here" << std::endl;
                 break;
             }
         }
-        std::cout << remaining.size() << std::endl;
     }
 }
 
 // Fonction qui fusionne deux régions et met à jour l'arbre
 Segmentator::Node_t* Segmentator::mergeRegions(Node_t* node1, Node_t* node2) {
-    std::cout << "mergeRegions()" << std::endl;
 
     // On crée un nouveau noeud qui sera le parent des deux régions
     Node_t* node = new Node_t;
@@ -285,16 +313,17 @@ Segmentator::Node_t* Segmentator::mergeRegions(Node_t* node1, Node_t* node2) {
 
 void Segmentator::colorAssignment() {
     for (Node_t parent : region_parents) {
-        std::cout << "colorAssignment()" << std::endl;
         colorAssignment(parent, parent.label_color);
     }
 }
 
 void Segmentator::colorAssignment(Node_t node, Vec3b label_color) {
-    std::cout << "colorAssignment()" << std::endl;
     if (node.children.size() == 0) {
         for (Point p : node.members) {
             labels.at<Vec3b>(p) = label_color;
+        }
+        for (Point p : node.boundary) {
+            boundary.at<Vec3b>(p) = label_color;
         }
 
         return;
@@ -335,6 +364,8 @@ void Segmentator::randomSeeds(Mat& image, vector<Point>& seeds, int numSeeds, in
 }
 
 Mat Segmentator::segmentate() {
+    std::chrono::time_point<std::chrono::system_clock> t = std::chrono::system_clock::now();
+
     // Pose des germes aléatoires dans l'image
     randomSeeds(image, seeds, numSeeds, minDist);
     thread* threads = new thread[numSeeds];
@@ -357,19 +388,6 @@ Mat Segmentator::segmentate() {
     }*/
 
     
-    /*for (int i=0; i < numSeeds; i++) {
-        threads[i] = thread(
-            [this](Node_t& region) -> void {
-                computeBoundary(region);
-                return;
-            }, ref(regions[i]));
-    }
-
-    for (int i=0; i < numSeeds; i++) {
-        threads[i].join();
-    }*/
-
-    
     // Application de la fusion de région pour les régions adjacentes
     regionMerging(image, labels, minDist);
 
@@ -383,6 +401,36 @@ Mat Segmentator::segmentate() {
 
     delete[] threads;
 
+    std::cout << "Segmentations took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " second." << std::endl;
+
+
     return labels;
 }
 
+Mat Segmentator::computeBoundary() {
+    std::chrono::time_point<std::chrono::system_clock> t = std::chrono::system_clock::now();
+
+    boundary = Mat::zeros(boundary.size(), CV_8UC3);
+
+    thread* threads = new thread[region_parents.size()];
+    
+    list<Node_t>::iterator it = region_parents.begin();
+    for (int i=0; i < region_parents.size(); i++) {
+        threads[i] = thread(
+            [this](Node_t& region) -> void {
+                computeBoundary(region);
+                return;
+            }, ref(*it));
+        it++;
+    }
+
+    for (int i=0; i < region_parents.size(); i++) {
+        threads[i].join();
+    }
+
+    delete[] threads;
+
+    std::cout << "Boundaries of fusionnes regions took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " second." << std::endl;
+
+    return boundary;
+}

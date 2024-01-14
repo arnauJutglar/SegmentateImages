@@ -8,12 +8,15 @@
 #include <ctime>
 #include <thread>
 #include <mutex>
+#include <chrono>
+
+#define MAX_ITER 1000
 
 using namespace cv;
 using namespace std;
 
 class Segmentator {
-public:
+private:
     struct color_comp {
         bool operator()(const Vec3b& c1, const Vec3b& c2) const {
             if (c1[0] < c2[0]) {
@@ -46,9 +49,9 @@ public:
     vector<Node_t> regions; // Contient la liste des régions sous forme d'arbre.
     list<Node_t> region_parents;
     vector<Point> seeds; // Vecteur de germes.
-    int numSeeds = 60; // Numero de germes.
+    int numSeeds = 8; // Numero de germes.
     int minDist = 20; // Distance minimale entre eux.
-    int threshold = 100; // Seuil de similarité
+    float threshold = 50; // Seuil de similarité
     Mat labels;
     Mat unmerged_labels;
     Mat boundary;
@@ -57,9 +60,10 @@ public:
         return norm(c1 - c2) < threshold;
     };
 
-    bool similar(Vec3d c1, Vec3d c2, int threshold);
+    bool similar(Vec3d c1, Vec3d c2);
     void regionGrowing(Point seed);
     void computeBoundary(Node_t& region);
+    void computeBoundary(Node_t& child, Node_t& parent);
     bool areAdjacent(Node_t region1, Node_t region2);
     bool areSimilar(Node_t region1, Node_t region2);
     bool isBoundary(const Node_t& region1, Point p);
@@ -74,6 +78,14 @@ public:
 public:
     Segmentator(Mat& image);
     Mat segmentate();
+    Mat computeBoundary();
+    Mat getLabels() { return labels; }
+    Mat getUnmergedLabels() { return unmerged_labels; }
+    Mat getBoundary() { return boundary; }
+    int setNumSeeds(int _numSeeds);
+    int setMinDist(int _minDist);
+    int setThreshold(float _threshold);
+    void setSimilarityFunction(function<bool(Vec3d,Vec3d)> f);
     friend bool operator==(const Segmentator::Node_t& node1, const Segmentator::Node_t& node2);
 };
 
