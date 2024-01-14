@@ -3,9 +3,6 @@
 mutex mutex_object;
 
 
-int callings = 0;
-
-
 bool operator==(const Segmentator::Node_t& node1, const Segmentator::Node_t& node2) {
     if (node1.label_color == node2.label_color) {
         return true;
@@ -17,28 +14,11 @@ bool operator==(const Point& p1, const Point& p2) {
     return p1.x == p2.x && p1.y == p2.y;
 }
 
-/*
-bool operator<(const Vec3b& c1, const Vec3b& c2) {
-    if (c1[0] < c2[0]) {
-        return true;
-    } else if (c1[0] > c2[0]) {
-        return false;
-    } else if (c1[1] < c2[1]) {
-        return true;
-    } else if (c1[1] > c2[1]) {
-        return false;
-    } else if (c1[2] < c2[2]) {
-        return true;
-    } else {
-        return false;
-    }
-}
-*/
-
 Segmentator::Segmentator(Mat& image_) : image(image_) {
     // Création de la matrice des labels, initialisée à zéro
     labels = Mat::zeros(image_.size(), CV_8UC3);
     boundary = Mat::zeros(image_.size(), CV_8UC3);
+    unmerged_labels =  Mat::zeros(image_.size(), CV_8UC3);
 }
 
 
@@ -92,11 +72,11 @@ void Segmentator::regionGrowing(Point seed) {
                     Vec3b neighbor = image.at<Vec3b>(q);
 
                     // On vérifie que le voisin n'a pas déjà été affecté à une région
-                    if (labels.at<Vec3b>(q) == 0) {
+                    if (unmerged_labels.at<Vec3b>(q) == 0) {
                         // On vérifie que le voisin est similaire au pixel courant
                         if (similar(node.region_value, neighbor, threshold)) {
                             // On affecte le voisin à la même région que le pixel courant
-                            labels.at<Vec3b>(q) = node.label_color;
+                            unmerged_labels.at<Vec3b>(q) = node.label_color;
                             node.members.push_back(q);
                             if (node.members.size() > node.members.max_size() - 100) {
                                 std::cout << "Exceeded size." << std::endl;
@@ -175,24 +155,6 @@ void Segmentator::computeBoundary(Node_t& region) {
 bool Segmentator::areAdjacent(Node_t region1, Node_t region2) {
     std::cout << "areAdjacent()" << std::endl;
 
-    /*
-    for (Point p : region1.boundary) {
-        // On parcourt les 8 voisins du pixel
-        for (int k = -1; k <= 1; k++) {
-            for (int l = -1; l <= 1; l++) {
-                // On vérifie que le voisin est dans les limites de l'image
-                if (p.x + k >= 0 && p.x + k < labels.rows && p.y + l >= 0 && p.y + l < labels.cols) {
-                    // On vérifie si le voisin appartient à la région 2
-                    Point q(p.x + k, p.y + l);
-                    if (find(region2.boundary.begin(), region2.boundary.end(), q) != region2.boundary.end()) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    return false;
-    */
     for (Vec3b label : region1.adjacents) {
         if (find(region2.adjacents.begin(), region2.adjacents.end(), label) != region2.adjacents.end()) {
             return true;
@@ -314,7 +276,6 @@ Segmentator::Node_t* Segmentator::mergeRegions(Node_t* node1, Node_t* node2) {
         node->boundary.push_back(p);
     }
     */
-    std::cout << (*node1).region_value << (*node2).region_value << " should not appear in parents." << std::endl;
     region_parents.remove(*node1);
     region_parents.remove(*node2);
     region_parents.push_back(*node);
@@ -330,10 +291,10 @@ void Segmentator::colorAssignment() {
 }
 
 void Segmentator::colorAssignment(Node_t node, Vec3b label_color) {
-    //std::cout << "colorAssignment()" << std::endl;
+    std::cout << "colorAssignment()" << std::endl;
     if (node.children.size() == 0) {
         for (Point p : node.members) {
-            boundary.at<Vec3b>(p) = label_color;
+            labels.at<Vec3b>(p) = label_color;
         }
 
         return;
@@ -395,7 +356,6 @@ Mat Segmentator::segmentate() {
         regionGrowing(seeds[i]);
     }*/
 
-    std::cout << "regions size = " << regions.size() << " vs " << numSeeds << std::endl;
     
     /*for (int i=0; i < numSeeds; i++) {
         threads[i] = thread(
@@ -413,13 +373,6 @@ Mat Segmentator::segmentate() {
     // Application de la fusion de région pour les régions adjacentes
     regionMerging(image, labels, minDist);
 
-    for (Node_t region : region_parents) {
-        std::cout << "Members size: " << region.members.size() << " " << std::endl;
-        for (Node_t* children : region.children) {
-            std::cout << "Members size: " << (*children).members.size() << " " << std::endl;
-        }
-    }
-
     colorAssignment();
 
     /*for (Node_t region : regions) {
@@ -433,28 +386,3 @@ Mat Segmentator::segmentate() {
     return labels;
 }
 
-void print_graph(list<Segmentator::Node_t> nodes) {
-    for (Segmentator::Node_t node : nodes) {
-        print_graph(node);
-    }
-}
-
-void print_graph(Segmentator::Node_t node) {
-    if (node.children.size() != 0) {
-        std::cout << "There is a parent" << std::endl;
-        for (Segmentator::Node_t* child : node.children) {
-            print_graph(*child);
-        }
-    } else {
-        std::cout << "Members size: " << node.members.size() << std::endl;
-        if (node.members.size() == 0) {
-            int parents = 0;
-            Segmentator::Node_t* aux = node.parent;
-            while (aux != nullptr) {
-                aux = aux->parent;
-                parents++;
-            }
-            std::cout << "n parents = " << parents << std::endl;
-        }
-    }
-}

@@ -46,10 +46,11 @@ public:
     vector<Node_t> regions; // Contient la liste des régions sous forme d'arbre.
     list<Node_t> region_parents;
     vector<Point> seeds; // Vecteur de germes.
-    int numSeeds = 15; // Numero de germes.
+    int numSeeds = 60; // Numero de germes.
     int minDist = 20; // Distance minimale entre eux.
-    int threshold = 50; // Seuil de similarité
+    int threshold = 100; // Seuil de similarité
     Mat labels;
+    Mat unmerged_labels;
     Mat boundary;
     Mat& image;
     function<bool(Vec3d,Vec3d)> similarityFunction = [this] (Vec3d c1, Vec3d c2) -> bool {
@@ -70,12 +71,6 @@ public:
     void randomSeeds(Mat& image, vector<Point>& seeds, int numSeeds, int minDist);
     Vec3b randomColor();
 
-    void print() {
-        for (Node_t region : regions) {
-            std::cout << "Boundary size: " << region.boundary.size() << std::endl;
-        }
-    }
-
 public:
     Segmentator(Mat& image);
     Mat segmentate();
@@ -85,8 +80,6 @@ public:
 bool operator==(const Segmentator::Node_t& node1, const Segmentator::Node_t& node2);
 bool operator<(const Vec3b& c1, const Vec3b& c2);
 bool color_comparator(const Vec3b& c1, const Vec3b& c2);
-void print_graph(list<Segmentator::Node_t> node);
-void print_graph(Segmentator::Node_t node);
 
 
 
