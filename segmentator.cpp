@@ -295,15 +295,6 @@ Segmentator::Node_t* Segmentator::mergeRegions(Node_t* node1, Node_t* node2) {
         node->adjacents.insert(label);
     }
 
-
-    /*
-    for (Point p : node1.boundary) {
-        node->boundary.push_back(p);
-    }
-    for (Point p : node2.boundary) {
-        node->boundary.push_back(p);
-    }
-    */
     region_parents.remove(*node1);
     region_parents.remove(*node2);
     region_parents.push_back(*node);
@@ -382,11 +373,6 @@ Mat Segmentator::segmentate() {
     for (int i=0; i < numSeeds; i++) {
         threads[i].join();
     }
-
-    /*for (int i=0; i < numSeeds; i++) {
-        regionGrowing(seeds[i]);
-    }*/
-
     
     // Application de la fusion de région pour les régions adjacentes
     regionMerging(image, labels, minDist);
@@ -401,7 +387,7 @@ Mat Segmentator::segmentate() {
 
     delete[] threads;
 
-    std::cout << "Segmentations took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " second." << std::endl;
+    std::cout << "Segmentations took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " seconds." << std::endl;
 
 
     return labels;
@@ -430,7 +416,7 @@ Mat Segmentator::computeBoundary() {
 
     delete[] threads;
 
-    std::cout << "Boundaries of fusionnes regions took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " second." << std::endl;
+    std::cout << "Boundaries of fusionnes regions took " << std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now()-t).count() << " seconds." << std::endl;
 
     return boundary;
 }

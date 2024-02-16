@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "vector": "cpp",
+        "iostream": "cpp",
+        "*.ipp": "cpp",
+        "thread": "cpp",
+        "list": "cpp",
+        "set": "cpp"
+    }
+}

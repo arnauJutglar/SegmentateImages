@@ -1,0 +1,1 @@
+À cause du limite d'octets du rendu sur Tomuss, on n'a pas pu ajouter les dépendénces d'OpenCV. Alors, la compilation de ce programme ne pourra pas marcher. On va essayer de se mettre en contacte avec vous via mail pour arranger ça.
