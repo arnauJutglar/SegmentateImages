@@ -35,3 +35,12 @@ Different segmentation criteria can be given. For instance, it can be the light 
 
 ![segmentation4](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/merged4.png)
 
+### Usage
+All the code is factorized inside the Segmentator class. Any instance of it must be initialized with the image that has to be segmentated. If wanted, a similarity function can be set via the ``setSimilarityFunction()`` method. Otherwise, it uses the default one, which is given by the average color similarity. The number of initial seeds can also be changed via the ``setNumSeeds()`` method (default = ``20``).
+
+The outcome images can be obtained via the methods ``getLabels()``, ``getUnmergedLabels()`` and ``getBoundary()``.
+
+For the segmentation to be made, a call to the ``segmentate()`` method must be done. If it is wanted to compute the merged boundaries, a call to ``computeBoundary()`` must also be done.
+
+### Dependencies
+Dependencies to the OpenCV source code are given in this repository. The provided Makefile is able to compilate the program without any other requirement than to download the whole repository. However, this OpenCV version has been made for MacOS so there's no warranty that it will work in a different OS.
