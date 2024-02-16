@@ -101,5 +101,4 @@ bool color_comparator(const Vec3b& c1, const Vec3b& c2);
 
 
 
-
 #endif /* segmentator_h */
