@@ -5,15 +5,19 @@ This code provides a segmentation of the given image, following the region growi
 
 ### Outcome
 Given this as an initial image:
+
 ![initial](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/Original.png)
 
 One initial segmentation is:
+
 ![segmentation1](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/segmentated1.png)
 
 When merged, the outcome is:
+
 ![merged1](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/merged1.png)
 
 The fast initial boundaries computation is:
+
 ![boundaries1](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/boundaries1.png)
 
 It required ``2.27`` seconds in total in a MacBook Pro 2017.
@@ -28,5 +32,6 @@ Given the same initial image, with the purpose of computing the actual final bou
 The computation of the merged regions' boundaries required ``197``seconds.
 
 Different segmentation criteria can be given. For instance, it can be the light intensity, leading to the following segmentation:
-![segmentation4](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/segmentation4.png)
+
+![segmentation4](https://github.com/arnauJutglar/SegmentateImages/blob/main/resources/merged4.png)
 
