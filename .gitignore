@@ -11,3 +11,5 @@ segmentator
 segmentator.dSYM
 test
 test.dSYM
+.*
+
